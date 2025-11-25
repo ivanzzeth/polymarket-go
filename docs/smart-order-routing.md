@@ -597,17 +597,18 @@ client, err := polymarket.NewClient(
 
 ## 实现优先级
 
-### Phase 1: 基础分析（优先实现）
+### Phase 1: 基础分析（已完成）
 - [x] `GetComplementaryTokenID` - 获取互补代币 ID
 - [x] `ConvertLimitOrder` - 订单转换
 - [x] `ConvertMarketOrder` - 市价单转换
-- [ ] `AnalyzeOrderbookDepth` - 订单簿深度分析
+- [ ] `AnalyzeOrderbookDepth` - 订单簿深度分析（可选功能）
 
-### Phase 2: 自动管理（核心功能）
-- [ ] `StartAutoRedeem` / `StopAutoRedeem` - 自动赎回服务
-- [ ] `StartAutoMerge` / `StopAutoMerge` - 自动合并服务
-- [ ] `StartAutoManagement` / `StopAutoManagement` - 统一自动管理
-- [ ] `WithAutoRedeem` / `WithAutoMerge` - 选项配置
+### Phase 2: 自动管理（已完成）
+- [x] `startAutoRedeem` / `StopAutoRedeem` - 自动赎回服务（内部方法，通过配置自动启动）
+- [x] `startAutoMerge` / `StopAutoMerge` - 自动合并服务（内部方法，通过配置自动启动）
+- [x] `startAutoManagement` / `StopAutoManagement` - 统一自动管理
+- [x] `WithAutoRedeem` / `WithAutoMerge` - 选项配置
+- [x] `Close()` - 优雅关闭所有后台服务
 
 ### Phase 3: 智能对比（可选）
 - [ ] `CompareOrderSides` - 双向流动性比较
