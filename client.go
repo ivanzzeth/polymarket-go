@@ -342,7 +342,7 @@ func (c *Client) GetConditionIDByTokenID(ctx context.Context, tokenID string) (s
 	return conditionID, nil
 }
 
-// ConvertLimitOrder converts a limit order to its complementary side
+// ConvertLimitOrderToComplementary converts a limit order to its complementary token order
 // This automatically queries the complementary token ID and performs the conversion
 // Based on Polymarket's complementary token mechanism:
 //   - Buy token @ P  → Sell complementary @ (1-P)
@@ -350,7 +350,7 @@ func (c *Client) GetConditionIDByTokenID(ctx context.Context, tokenID string) (s
 //
 // This allows traders to achieve the same position using whichever side has better liquidity
 // For example: Buy YES @ 0.6 = Sell NO @ 0.4
-func (c *Client) ConvertLimitOrder(ctx context.Context, order *types.UserOrder) (*types.UserOrder, error) {
+func (c *Client) ConvertLimitOrderToComplementary(ctx context.Context, order *types.UserOrder) (*types.UserOrder, error) {
 	if order == nil {
 		return nil, fmt.Errorf("order cannot be nil")
 	}
@@ -362,13 +362,13 @@ func (c *Client) ConvertLimitOrder(ctx context.Context, order *types.UserOrder) 
 	}
 
 	// Convert the order
-	return convertOrder(order, complementaryTokenID)
+	return ConvertToComplementaryOrder(order, complementaryTokenID)
 }
 
-// ConvertMarketOrder converts a market order to its complementary side
+// ConvertMarketOrderToComplementary converts a market order to its complementary token order
 // This automatically queries the complementary token ID and performs the conversion
 // The conversion works by: market order → limit order → convert → limit order → market order
-func (c *Client) ConvertMarketOrder(ctx context.Context, order *types.UserMarketOrder) (*types.UserMarketOrder, error) {
+func (c *Client) ConvertMarketOrderToComplementary(ctx context.Context, order *types.UserMarketOrder) (*types.UserMarketOrder, error) {
 	if order == nil {
 		return nil, fmt.Errorf("order cannot be nil")
 	}
@@ -380,7 +380,100 @@ func (c *Client) ConvertMarketOrder(ctx context.Context, order *types.UserMarket
 	}
 
 	// Convert the order
-	return convertMarketOrder(order, complementaryTokenID)
+	return ConvertMarketOrderToComplementary(order, complementaryTokenID)
+}
+
+// ConvertLimitOrderToOppositeSide converts a limit order to the opposite side (BUY ↔ SELL) with optional spread.
+// The spread parameter adjusts the price to create a market making spread:
+//   - BUY → SELL: price becomes P + spread (sell at higher price)
+//   - SELL → BUY: price becomes P - spread (buy at lower price)
+//
+// Example without spread:
+//   - Buy YES @ 0.49  → Sell YES @ 0.49
+//   - Sell NO @ 0.51  → Buy NO @ 0.51
+//
+// Example with spread (0.02):
+//   - Buy YES @ 0.49  → Sell YES @ 0.51 (0.49 + 0.02)
+//   - Sell NO @ 0.51  → Buy NO @ 0.49 (0.51 - 0.02)
+//
+// When combined with ConvertLimitOrderToComplementary, you can create market making strategies:
+//   Buy YES @ 0.49 → (opposite + spread) → Sell YES @ 0.51 → (complementary) → Buy NO @ 0.49
+//   Result: Buy YES @ 0.49 + Buy NO @ 0.49 = 0.98 cost, merge to 1.0, profit = 0.02
+//
+// This is useful for:
+//   - Market making with spreads
+//   - Creating arbitrage opportunities
+//   - Testing order matching with spreads
+func (c *Client) ConvertLimitOrderToOppositeSide(order *types.UserOrder, spread decimal.Decimal) (*types.UserOrder, error) {
+	return ConvertToOppositeSideOrder(order, spread)
+}
+
+// ConvertMarketOrderToOppositeSide converts a market order to the opposite side (BUY ↔ SELL) with optional spread.
+// The spread parameter adjusts the price to create a market making spread.
+func (c *Client) ConvertMarketOrderToOppositeSide(order *types.UserMarketOrder, spread decimal.Decimal) (*types.UserMarketOrder, error) {
+	return ConvertMarketOrderToOppositeSide(order, spread)
+}
+
+// ConvertLimitOrderToMatchingSameSide converts a limit order to a matching same-side order on the complementary token.
+// This is a convenience method that automatically queries the complementary token ID and creates a matching order.
+//
+// The conversion keeps the order side (BUY/SELL) the same while switching to the complementary token:
+//   - Buy YES @ P  → Buy NO @ (1-P) - spread
+//   - Sell YES @ P → Sell NO @ (1-P) + spread
+//
+// The spread parameter creates market making opportunities:
+//   - For BUY orders: reduces the matching order price, creating profit when both filled
+//   - For SELL orders: increases the matching order price, creating profit when both filled
+//
+// Example use case - Market making with guaranteed profit:
+//
+//	original := Buy YES @ 0.48
+//	spread := decimal.NewFromFloat(0.02)
+//	matching, _ := client.ConvertLimitOrderToMatchingSameSide(ctx, original, spread)
+//	// Result: matching = Buy NO @ 0.50  (1 - 0.50)
+//	// Where 0.50 comes from: 0.48 + 0.02 (spread) = 0.50, then 1 - 0.50 = 0.50
+//	// Cost: 0.48 + 0.50 = 0.98, merge to 1.0, profit = 0.02 ✅
+//
+// This creates two orders on the same side that can match each other, triggering CTF operations:
+//   - Two BUY orders trigger the split operation (mint YES + NO from collateral)
+//   - Two SELL orders trigger the merge operation (burn YES + NO to collateral)
+//
+// This is useful for:
+//   - Market making with guaranteed profit (when both orders fill)
+//   - Liquidity provision while earning spreads
+//   - Testing CTF split/merge operations
+//   - Arbitrage strategies utilizing CTF operations
+func (c *Client) ConvertLimitOrderToMatchingSameSide(ctx context.Context, order *types.UserOrder, spread decimal.Decimal) (*types.UserOrder, error) {
+	if order == nil {
+		return nil, fmt.Errorf("order cannot be nil")
+	}
+
+	// Get complementary token ID
+	complementaryTokenID, err := c.GetComplementaryTokenID(ctx, order.TokenID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get complementary token ID: %w", err)
+	}
+
+	// Convert the order using the base function
+	return ConvertToMatchingSameSideOrder(order, complementaryTokenID, spread)
+}
+
+// ConvertMarketOrderToMatchingSameSide converts a market order to a matching same-side order on the complementary token.
+// This is the market order version of ConvertLimitOrderToMatchingSameSide.
+// This automatically queries the complementary token ID and performs the conversion.
+func (c *Client) ConvertMarketOrderToMatchingSameSide(ctx context.Context, order *types.UserMarketOrder, spread decimal.Decimal) (*types.UserMarketOrder, error) {
+	if order == nil {
+		return nil, fmt.Errorf("order cannot be nil")
+	}
+
+	// Get complementary token ID
+	complementaryTokenID, err := c.GetComplementaryTokenID(ctx, order.TokenID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get complementary token ID: %w", err)
+	}
+
+	// Convert the order using the base function
+	return ConvertMarketOrderToMatchingSameSide(order, complementaryTokenID, spread)
 }
 
 // Close stops all background services and releases resources

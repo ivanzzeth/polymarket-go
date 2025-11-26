@@ -48,7 +48,7 @@ func main() {
 		Nonce:      big.NewInt(12345),
 	}
 
-	convertedLimitOrder, err := client.ConvertLimitOrder(ctx, originalLimitOrder)
+	convertedLimitOrder, err := client.ConvertLimitOrderToComplementary(ctx, originalLimitOrder)
 	if err != nil {
 		log.Printf("  Error: %v\n", err)
 	} else {
@@ -72,7 +72,7 @@ func main() {
 		Side:    types.OrderSideSell,
 	}
 
-	convertedMarketOrder, err := client.ConvertMarketOrder(ctx, originalMarketOrder)
+	convertedMarketOrder, err := client.ConvertMarketOrderToComplementary(ctx, originalMarketOrder)
 	if err != nil {
 		log.Printf("  Error: %v\n", err)
 	} else {
@@ -96,7 +96,7 @@ func main() {
 		Side:    types.OrderSideBuy,
 	}
 
-	convertedAnotherOrder, err := client.ConvertLimitOrder(ctx, anotherLimitOrder)
+	convertedAnotherOrder, err := client.ConvertLimitOrderToComplementary(ctx, anotherLimitOrder)
 	if err != nil {
 		log.Printf("  Error: %v\n", err)
 	} else {
