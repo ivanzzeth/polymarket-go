@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 
 	polymarket "github.com/ivanzzeth/polymarket-go"
@@ -30,8 +31,8 @@ func main() {
 		polymarket.WithAutoRedeem(&polymarket.AutoRedeemConfig{
 			PollingInterval: 30 * time.Second, // Check every 30 seconds
 			Enabled:         true,
-			OnSuccess: func(tokenID string, amount decimal.Decimal) {
-				log.Printf("✓ [AUTO-REDEEM] Redeemed %s USDC from token %s", amount.String(), tokenID)
+			OnSuccess: func(conditionID string, amount decimal.Decimal, txHash common.Hash) {
+				log.Printf("✓ [AUTO-REDEEM] Redeemed %s USDC from condition %s (tx: %s)", amount.String(), conditionID, txHash.Hex())
 			},
 			OnError: func(err error) {
 				log.Printf("✗ [AUTO-REDEEM] Error: %v", err)
@@ -42,8 +43,8 @@ func main() {
 			PollingInterval: 60 * time.Second,          // Check every 60 seconds
 			Enabled:         true,
 			MinMergeAmount:  decimal.NewFromFloat(0.5), // Only merge if >= 0.5 USDC
-			OnSuccess: func(conditionID string, amount decimal.Decimal) {
-				log.Printf("✓ [AUTO-MERGE] Merged %s USDC from condition %s", amount.String(), conditionID)
+			OnSuccess: func(conditionID string, amount decimal.Decimal, txHash common.Hash) {
+				log.Printf("✓ [AUTO-MERGE] Merged %s USDC from condition %s (tx: %s)", amount.String(), conditionID, txHash.Hex())
 			},
 			OnError: func(err error) {
 				log.Printf("✗ [AUTO-MERGE] Error: %v", err)

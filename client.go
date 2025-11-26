@@ -29,6 +29,7 @@ type Client struct {
 	realtimeDataClient *polymarketrealtime.Client
 	contractInterface  *polymarketcontracts.ContractInterface
 	clobClient         *polymarketclob.Client
+	ethClient          *ethclient.Client // Ethereum client for transaction operations
 
 	// Funder address (the actual address that holds funds)
 	funderAddr common.Address
@@ -87,7 +88,7 @@ func WithAutoMerge(config *AutoMergeConfig) ClientOption {
 	}
 }
 
-func NewClient(ethclient ethclient.EthClientInterface, options ...ClientOption) (*Client, error) {
+func NewClient(ethclient *ethclient.Client, options ...ClientOption) (*Client, error) {
 	defaultOptions := &ClientConfig{}
 
 	for _, opFn := range options {
@@ -152,6 +153,7 @@ func NewClient(ethclient ethclient.EthClientInterface, options ...ClientOption) 
 		realtimeDataClient: realtimeDataClient,
 		contractInterface:  contractInterface,
 		clobClient:         clobClient,
+		ethClient:          ethclient,
 		funderAddr:         funderAddr,
 	}
 

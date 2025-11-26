@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	polymarketdata "github.com/ivanzzeth/polymarket-go-data-client"
 	"github.com/shopspring/decimal"
 )
@@ -22,7 +23,8 @@ type AutoRedeemConfig struct {
 	OnError func(error)
 
 	// OnSuccess success callback (optional)
-	OnSuccess func(tokenID string, amount decimal.Decimal)
+	// Parameters: conditionID, amount, txHash (transaction hash after mining)
+	OnSuccess func(conditionID string, amount decimal.Decimal, txHash common.Hash)
 }
 
 // AutoMergeConfig configuration for automatic merge
@@ -40,7 +42,8 @@ type AutoMergeConfig struct {
 	OnError func(error)
 
 	// OnSuccess success callback (optional)
-	OnSuccess func(conditionID string, amount decimal.Decimal)
+	// Parameters: conditionID, amount, txHash (transaction hash after mining)
+	OnSuccess func(conditionID string, amount decimal.Decimal, txHash common.Hash)
 }
 
 // startAutoRedeem starts the automatic redemption service (internal use only)
@@ -254,10 +257,20 @@ func (c *Client) processAutoRedeem(ctx context.Context) {
 		return
 	}
 
+	// Track processed conditionIDs to avoid duplicate processing
+	// Since positions are per-token but redeem is per-condition, we need to skip
+	// complementary tokens after processing a condition
+	processedConditions := make(map[string]bool)
+
 	// Process each redeemable position
 	for _, position := range positions {
 		conditionID := position.ConditionId
 		balance := position.Size
+
+		// Skip if this condition has already been processed
+		if processedConditions[conditionID] {
+			continue
+		}
 
 		// Skip zero balance
 		if balance.IsZero() {
@@ -277,7 +290,7 @@ func (c *Client) processAutoRedeem(ctx context.Context) {
 
 			// Try NegRisk redeem
 			amounts := []decimal.Decimal{balance, complementaryBalance}
-			_, err := c.RedeemNegRisk(ctx, conditionID, amounts)
+			txHash, err := c.RedeemNegRisk(ctx, conditionID, amounts)
 			if err != nil {
 				if config.OnError != nil {
 					config.OnError(fmt.Errorf("failed to redeem NegRisk condition %s: %w", conditionID, err))
@@ -285,14 +298,27 @@ func (c *Client) processAutoRedeem(ctx context.Context) {
 				continue
 			}
 
-			// NegRisk redeem succeeded
+			// Wait for transaction to be mined (1 confirmation, 120 second timeout)
+			// TODO: Make confirmations and timeout configurable via AutoRedeemConfig
+			_, ok := c.ethClient.WaitTxReceipt(txHash, 1, 120*time.Second)
+			if !ok {
+				if config.OnError != nil {
+					config.OnError(fmt.Errorf("timeout waiting for NegRisk redeem transaction %s", txHash.Hex()))
+				}
+				continue
+			}
+
+			// NegRisk redeem succeeded and mined
 			if config.OnSuccess != nil {
 				totalRedeemed := balance.Add(complementaryBalance)
-				config.OnSuccess(position.Asset, totalRedeemed)
+				config.OnSuccess(conditionID, totalRedeemed, txHash)
 			}
+
+			// Mark condition as processed to skip complementary tokens
+			processedConditions[conditionID] = true
 		} else {
 			// Standard market redeem
-			_, err := c.Redeem(ctx, conditionID)
+			txHash, err := c.Redeem(ctx, conditionID)
 			if err != nil {
 				if config.OnError != nil {
 					config.OnError(fmt.Errorf("failed to redeem condition %s: %w", conditionID, err))
@@ -300,10 +326,23 @@ func (c *Client) processAutoRedeem(ctx context.Context) {
 				continue
 			}
 
-			// Standard redeem succeeded
-			if config.OnSuccess != nil {
-				config.OnSuccess(position.Asset, balance)
+			// Wait for transaction to be mined (1 confirmation, 120 second timeout)
+			// TODO: Make confirmations and timeout configurable via AutoRedeemConfig
+			_, ok := c.ethClient.WaitTxReceipt(txHash, 1, 120*time.Second)
+			if !ok {
+				if config.OnError != nil {
+					config.OnError(fmt.Errorf("timeout waiting for redeem transaction %s", txHash.Hex()))
+				}
+				continue
 			}
+
+			// Standard redeem succeeded and mined
+			if config.OnSuccess != nil {
+				config.OnSuccess(conditionID, balance, txHash)
+			}
+
+			// Mark condition as processed to skip complementary tokens
+			processedConditions[conditionID] = true
 		}
 	}
 }
@@ -358,7 +397,7 @@ func (c *Client) processAutoMerge(ctx context.Context) {
 		}
 
 		// Perform merge
-		_, err := c.Merge(ctx, conditionID, minBalance)
+		txHash, err := c.Merge(ctx, conditionID, minBalance)
 		if err != nil {
 			if config.OnError != nil {
 				config.OnError(fmt.Errorf("failed to merge condition %s: %w", conditionID, err))
@@ -366,9 +405,19 @@ func (c *Client) processAutoMerge(ctx context.Context) {
 			continue
 		}
 
+		// Wait for transaction to be mined (1 confirmation, 120 second timeout)
+		// TODO: Make confirmations and timeout configurable via AutoMergeConfig
+		_, ok := c.ethClient.WaitTxReceipt(txHash, 1, 120*time.Second)
+		if !ok {
+			if config.OnError != nil {
+				config.OnError(fmt.Errorf("timeout waiting for merge transaction %s", txHash.Hex()))
+			}
+			continue
+		}
+
 		// Trigger success callback
 		if config.OnSuccess != nil {
-			config.OnSuccess(conditionID, minBalance)
+			config.OnSuccess(conditionID, minBalance, txHash)
 		}
 	}
 }
