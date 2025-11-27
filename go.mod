@@ -10,7 +10,7 @@ require (
 	github.com/ethereum/go-ethereum v1.16.5
 	github.com/ivanzzeth/ethclient v0.1.35
 	github.com/ivanzzeth/polymarket-go-clob-client v0.0.0-00010101000000-000000000000
-	github.com/ivanzzeth/polymarket-go-contracts v0.0.2
+	github.com/ivanzzeth/polymarket-go-contracts v0.1.0
 	github.com/ivanzzeth/polymarket-go-data-client v0.1.1
 	github.com/ivanzzeth/polymarket-go-gamma-client v0.2.1
 	github.com/ivanzzeth/polymarket-go-order-utils v1.0.0
@@ -54,7 +54,7 @@ require (
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/icholy/digest v1.1.0 // indirect
 	github.com/imroc/req/v3 v3.56.0 // indirect
-	github.com/ivanzzeth/ethsig v0.0.1 // indirect
+	github.com/ivanzzeth/ethsig v0.1.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect

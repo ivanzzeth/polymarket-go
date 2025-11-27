@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	polymarket "github.com/ivanzzeth/polymarket-go"
 	"github.com/ivanzzeth/polymarket-go/examples/helper"
 )
 
@@ -24,13 +25,24 @@ func main() {
 	fmt.Println("=== Polymarket Balance Query Example ===")
 	fmt.Println()
 
-	// Example 1: Get USDC collateral balance
-	fmt.Println("1. Querying USDC Collateral Balance:")
-	collateralBalance, err := client.GetCollateralBalance(ctx)
+	// Example 1: Get USDC collateral balance (from CLOB API)
+	fmt.Println("1. Querying USDC Collateral Balance (CLOB API):")
+	collateralBalance, err := client.GetCollateralBalance(ctx, nil)
 	if err != nil {
 		log.Printf("  Error: %v\n", err)
 	} else {
 		fmt.Printf("  Total Balance: %s USDC\n", collateralBalance.String())
+	}
+
+	// Example 1b: Get USDC collateral balance from blockchain (source of truth)
+	fmt.Println("\n1b. Querying USDC Collateral Balance (On-Chain):")
+	collateralBalanceOnChain, err := client.GetCollateralBalance(ctx, &polymarket.BalanceQueryOption{
+		Source: polymarket.DataSourceOnChain,
+	})
+	if err != nil {
+		log.Printf("  Error: %v\n", err)
+	} else {
+		fmt.Printf("  Total Balance: %s USDC\n", collateralBalanceOnChain.String())
 	}
 
 	// Example 2: Get detailed USDC balance (including locked in orders)
@@ -59,11 +71,22 @@ func main() {
 	if tokenID != "" {
 		fmt.Printf("\n4. Querying Position Token Balance (Token ID: %s):\n", tokenID)
 		fmt.Println("   (Position tokens represent YES/NO outcomes in markets)")
-		tokenBalance, err := client.GetPositionBalance(ctx, tokenID)
+		tokenBalance, err := client.GetPositionBalance(ctx, tokenID, nil)
 		if err != nil {
 			log.Printf("  Error: %v\n", err)
 		} else {
 			fmt.Printf("  Balance: %s tokens\n", tokenBalance.String())
+		}
+
+		// Example 4b: Get position token balance from blockchain
+		fmt.Println("\n4b. Querying Position Token Balance (On-Chain):")
+		tokenBalanceOnChain, err := client.GetPositionBalance(ctx, tokenID, &polymarket.BalanceQueryOption{
+			Source: polymarket.DataSourceOnChain,
+		})
+		if err != nil {
+			log.Printf("  Error: %v\n", err)
+		} else {
+			fmt.Printf("  Balance: %s tokens\n", tokenBalanceOnChain.String())
 		}
 
 		// Example 5: Get detailed position token balance
