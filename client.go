@@ -24,6 +24,7 @@ import (
 )
 
 type Client struct {
+	httpClient         *http.Client
 	gammaClient        *polymarketgamma.Client
 	dataClient         *polymarketdata.Client
 	realtimeDataClient *polymarketrealtime.Client
@@ -148,6 +149,7 @@ func NewClient(ethclient *ethclient.Client, options ...ClientOption) (*Client, e
 	}
 
 	client := &Client{
+		httpClient:         httpClient,
 		gammaClient:        gammaClient,
 		dataClient:         dataClient,
 		realtimeDataClient: realtimeDataClient,

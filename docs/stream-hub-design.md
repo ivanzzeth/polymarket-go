@@ -81,19 +81,25 @@ Local state includes:
 The following types from the existing codebase are reused directly:
 
 ```go
-// From data_source.go
-type DataSource int
-const (
-    DataSourceCLOB    DataSource = iota  // Query from CLOB API
-    DataSourceOnChain                     // Query from blockchain
-)
-
 // From balance.go
 type BalanceDetail struct {
     TotalBalance     decimal.Decimal
     LockedBalance    decimal.Decimal
     AvailableBalance decimal.Decimal
 }
+```
+
+### Extended Existing Types
+
+```go
+// Extend DataSource in data_source.go with new values:
+type DataSource int
+const (
+    DataSourceCLOB      DataSource = iota  // Query from CLOB REST API
+    DataSourceOnChain                       // Query from blockchain
+    DataSourceWebSocket                     // Real-time WebSocket updates
+    DataSourceLocal                         // Optimistic update from local action
+)
 ```
 
 ### New Types to Define
@@ -140,17 +146,9 @@ type OrderUpdate struct {
     Status      OrderStatus
     SizeMatched decimal.Decimal
     Timestamp   time.Time
-    Source      UpdateSource     // Where this update came from
+    Source      DataSource       // Where this update came from (reuses extended DataSource)
     Sequence    uint64           // For ordering/deduplication
 }
-
-type UpdateSource string
-const (
-    UpdateSourceWebSocket UpdateSource = "websocket"
-    UpdateSourceREST      UpdateSource = "rest"
-    UpdateSourceLocal     UpdateSource = "local"      // Optimistic update from local action
-    UpdateSourceOnChain   UpdateSource = "onchain"
-)
 
 // =============================================================================
 // Order Book Types
@@ -233,7 +231,7 @@ type Event interface {
 
 type BalanceUpdateEvent struct {
     Balance   *BalanceDetail
-    Source    UpdateSource
+    Source    DataSource
     EventTime time.Time
 }
 
@@ -243,7 +241,7 @@ func (e *BalanceUpdateEvent) Timestamp() time.Time { return e.EventTime }
 type PositionUpdateEvent struct {
     TokenID   string
     Balance   *BalanceDetail
-    Source    UpdateSource
+    Source    DataSource
     EventTime time.Time
 }
 
@@ -1155,7 +1153,7 @@ func (c *Client) PlaceOrder(ctx context.Context, input OrderInput) (*Order, erro
         c.streamHub.emitOrderUpdate(OrderUpdate{
             OrderID: order.ID,
             Status:  OrderStatusOpen,
-            Source:  UpdateSourceLocal,
+            Source:  DataSourceLocal,
         })
         c.streamHub.emitBalanceUpdate(c.streamHub.state.GetCollateralBalance())
     }
@@ -1176,7 +1174,7 @@ func (c *Client) CancelOrder(ctx context.Context, orderID string) error {
         c.streamHub.emitOrderUpdate(OrderUpdate{
             OrderID: orderID,
             Status:  OrderStatusCancelled,
-            Source:  UpdateSourceLocal,
+            Source:  DataSourceLocal,
         })
         c.streamHub.emitBalanceUpdate(c.streamHub.state.GetCollateralBalance())
     }
