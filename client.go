@@ -196,6 +196,11 @@ func (c *Client) ClobClient() *polymarketclob.Client {
 	return c.clobClient
 }
 
+// EthClient returns the Ethereum client
+func (c *Client) EthClient() *ethclient.Client {
+	return c.ethClient
+}
+
 // FunderAddress returns the funder address (the actual address that holds funds)
 func (c *Client) FunderAddress() common.Address {
 	return c.funderAddr
