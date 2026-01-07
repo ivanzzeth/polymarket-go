@@ -4,13 +4,11 @@ go 1.24.1
 
 toolchain go1.24.9
 
-replace github.com/ivanzzeth/polymarket-go-clob-client => ../polymarket-go-clob-client
-
 require (
 	github.com/ethereum/go-ethereum v1.16.7
 	github.com/ivanzzeth/ethclient v0.1.35
-	github.com/ivanzzeth/polymarket-go-clob-client v0.0.0-00010101000000-000000000000
-	github.com/ivanzzeth/polymarket-go-contracts v0.1.2
+	github.com/ivanzzeth/polymarket-go-clob-client v0.0.5
+	github.com/ivanzzeth/polymarket-go-contracts v0.1.3
 	github.com/ivanzzeth/polymarket-go-data-client v0.1.1
 	github.com/ivanzzeth/polymarket-go-gamma-client v0.2.3
 	github.com/ivanzzeth/polymarket-go-order-utils v1.0.0
